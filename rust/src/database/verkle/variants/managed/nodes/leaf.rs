@@ -18,12 +18,12 @@ use crate::{
         verkle::{
             KeyedUpdate,
             variants::managed::{
-                KeyedUpdateBatch, VerkleNode, VerkleNodeId,
+                KeyedUpdateBatch, LeafDeltaNode, VerkleNode, VerkleNodeId,
                 commitment::{
                     OnDiskVerkleLeafCommitment, VerkleCommitment, VerkleCommitmentInput,
                     VerkleInnerCommitment, VerkleLeafCommitment,
                 },
-                nodes::{VerkleIdWithIndex, make_smallest_inner_node_for},
+                nodes::{ItemWithIndex, VerkleIdWithIndex, make_smallest_inner_node_for},
             },
         },
         visitor::NodeVisitor,
@@ -78,6 +78,24 @@ impl TryFrom<OnDiskFullLeafNode> for FullLeafNode {
             values: node.values,
             commitment: VerkleLeafCommitment::try_from(node.commitment)?,
         })
+    }
+}
+
+impl From<LeafDeltaNode> for FullLeafNode {
+    fn from(node: LeafDeltaNode) -> Self {
+        FullLeafNode {
+            stem: node.stem,
+            values: {
+                let mut values = node.values;
+                for ItemWithIndex { index, item } in node.values_delta {
+                    if let Some(item) = item {
+                        values[index as usize] = item;
+                    }
+                }
+                values
+            },
+            commitment: node.commitment,
+        }
     }
 }
 

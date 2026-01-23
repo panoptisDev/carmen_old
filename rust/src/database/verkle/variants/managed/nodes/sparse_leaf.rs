@@ -8,7 +8,7 @@
 // On the date above, in accordance with the Business Source License, use of
 // this software will be governed by the GNU Lesser General Public License v3.
 
-use std::borrow::Cow;
+use std::{array, borrow::Cow};
 
 use zerocopy::{FromBytes, Immutable, IntoBytes, Unaligned};
 
@@ -18,13 +18,13 @@ use crate::{
         verkle::{
             KeyedUpdate, KeyedUpdateBatch,
             variants::managed::{
-                VerkleNode, VerkleNodeId,
+                LeafDeltaNode, VerkleNode, VerkleNodeId,
                 commitment::{
                     OnDiskVerkleLeafCommitment, VerkleCommitment, VerkleCommitmentInput,
                     VerkleInnerCommitment, VerkleLeafCommitment,
                 },
                 nodes::{
-                    ValueWithIndex, VerkleIdWithIndex, make_smallest_inner_node_for,
+                    ItemWithIndex, ValueWithIndex, VerkleIdWithIndex, make_smallest_inner_node_for,
                     make_smallest_leaf_node_for,
                 },
             },
@@ -120,6 +120,35 @@ impl<const N: usize> TryFrom<OnDiskSparseLeafNode<N>> for SparseLeafNode<N> {
             values: on_disk.values,
             commitment: VerkleLeafCommitment::try_from(on_disk.commitment)?,
         })
+    }
+}
+
+impl<const N: usize> From<LeafDeltaNode> for SparseLeafNode<N> {
+    fn from(delta_node: LeafDeltaNode) -> Self {
+        SparseLeafNode {
+            stem: delta_node.stem,
+            values: {
+                let mut values = array::from_fn(|i| ValueWithIndex {
+                    index: i as u8,
+                    item: Value::default(),
+                });
+                for (i, item) in delta_node.values.into_iter().enumerate() {
+                    let slot = ValueWithIndex::get_slot_for(&values, i as u8).unwrap();
+                    values[slot] = ValueWithIndex {
+                        index: i as u8,
+                        item,
+                    };
+                }
+                for ItemWithIndex { index, item } in delta_node.values_delta {
+                    if let Some(item) = item {
+                        let slot = ValueWithIndex::get_slot_for(&values, index).unwrap();
+                        values[slot] = ValueWithIndex { index, item };
+                    }
+                }
+                values
+            },
+            commitment: delta_node.commitment,
+        }
     }
 }
 
