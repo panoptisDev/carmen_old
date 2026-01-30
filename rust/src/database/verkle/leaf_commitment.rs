@@ -66,7 +66,8 @@ pub fn compute_leaf_node_commitment(
     let prev_c1 = *c1;
     let prev_c2 = *c2;
 
-    let update_index = |i: usize| {
+    let update_index = |i: u8| {
+        let i = i as usize;
         let prev_value = prev_values[i];
         let cur_value = cur_values[i];
 
@@ -86,10 +87,18 @@ pub fn compute_leaf_node_commitment(
     };
 
     let mut c1_indices = Vec::with_capacity(128);
-    c1_indices.extend((0..128).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0));
+    c1_indices.extend(
+        (0..128)
+            .filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0)
+            .map(|i| i as u8),
+    );
 
     let mut c2_indices = Vec::with_capacity(128);
-    c2_indices.extend((128..256).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0));
+    c2_indices.extend(
+        (128..256)
+            .filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0)
+            .map(|i| i as u8),
+    );
 
     let c1_delta = c1_indices
         .into_par_iter()
