@@ -85,11 +85,13 @@ pub fn compute_leaf_node_commitment(
         delta_commitment
     };
 
-    let c1_indices = (0..128).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0);
-    let c2_indices = (128..256).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0);
+    let mut c1_indices = Vec::with_capacity(128);
+    c1_indices.extend((0..128).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0));
+
+    let mut c2_indices = Vec::with_capacity(128);
+    c2_indices.extend((128..256).filter(|i| changed_indices[i / 8] & (1 << (i % 8)) != 0));
 
     let c1_delta = c1_indices
-        .collect::<Vec<_>>()
         .into_par_iter()
         .with_min_len(MIN_UPDATES_PER_THREAD)
         .map(update_index)
@@ -97,7 +99,6 @@ pub fn compute_leaf_node_commitment(
         .reduce(Commitment::default, |acc, c| acc + c);
 
     let c2_delta = c2_indices
-        .collect::<Vec<_>>()
         .into_par_iter()
         .with_min_len(MIN_UPDATES_PER_THREAD)
         .map(update_index)
